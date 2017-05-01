@@ -107,17 +107,16 @@ int main(int argc, char *argv[])
 	}
 	
 	
+	// --- Initializing ---
+	init();
+	srand(time(NULL));
+	
 	
 	// --- Clearing output file ---
 	FILE *file = fopen("proj2.out", "w");
 	if (file == NULL)
 		exitError("Opening file for clear failed");
 	fclose(file);
-	
-	
-	// --- Initializing ---
-	init();
-	srand(time(NULL));
 	
 	
 	// --- Adult factory ---
@@ -146,9 +145,10 @@ int main(int argc, char *argv[])
 		
 		
 	// --- Ending main process ---
+	sem_wait(finishSemaphore);
 	waitpid(childFactoryPID, NULL, 0);
 	waitpid(adultFactoryPID, NULL, 0);
-    clean();
+  clean();
     
 	return 0;
 }
@@ -284,7 +284,6 @@ void childFactory(int childCount, int adultCount, int cgt, int cwt)
 			appendToFile('C',id,"enter"); 
 			
 			
-			
 			// Sleeping
 			randSleep(cwt);
 			appendToFile('C',id,"trying to leave"); 
@@ -297,14 +296,15 @@ void childFactory(int childCount, int adultCount, int cgt, int cwt)
 			(*childrenInCenter)--;
 			sem_post(childrenInCenterSemaphore);
 			
-			if(!(*childrenInCenter > ((*adultsInCenter)-1) * 3))
-				sem_post(adultLeaveSemaphore);
-			
 			(*finishedChildren)++;
+			
+			if(!(*childrenInCenter < ((*adultsInCenter)-1) * 3))
+				sem_post(adultLeaveSemaphore);
 			
 			sem_post(centerChangeSemaphore);	
 			
 			appendToFile('C',id,"leave"); 
+			
 			
 			// Finishing all processes
 			if(*noMoreAdults == 1 && childCount == *finishedChildren)
@@ -312,6 +312,7 @@ void childFactory(int childCount, int adultCount, int cgt, int cwt)
 				for(int x = 0; x < childCount+adultCount; x++)
 				sem_post(finishSemaphore);
 			}
+			
 			
 			// Finishing this child process
 			sem_wait(finishSemaphore);
@@ -467,6 +468,7 @@ void exitError(char *msg)
 	fprintf(stderr,"Error: %s\n", msg);
 	int errnum = errno;
 	fprintf(stderr, "Error #%d details: %s\n", errnum, strerror(errnum));
+	clean();
 	exit(2);
 }
 
