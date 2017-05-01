@@ -26,6 +26,7 @@ sem_t *childrenInCenterSemaphore;
 sem_t *centerChangeSemaphore;
 sem_t *adultLeaveSemaphore;
 sem_t *childEnterSemaphore;
+sem_t *finishSemaphore;
 
 // Global variables
 int lineCounterId = 0;
@@ -34,12 +35,14 @@ int childCounterId = 0;
 int adultsInCenterId = 0;
 int childrenInCenterId = 0;
 int noMoreAdultsId = 0;
+int finishedChildrenId = 0;
 int *lineCounter = NULL;
 int *adultCounter = NULL;
 int *childCounter = NULL;
 int *adultsInCenter = NULL;
 int *childrenInCenter = NULL;
 int *noMoreAdults = NULL;
+int *finishedChildren = NULL;
 
 // Function prototypes
 void exitError(char *msg);
@@ -47,7 +50,7 @@ void clean();
 void init();
 void randSleep(int time);
 void createSharedMemory(int id, int *content);
-void childFactory(int childCount, int agt, int awt);
+void childFactory(int childCount, int adultCount, int agt, int awt);
 void adultFactory(int adultCount, int cgt, int cwt);
 void appendToFile(char type, int id, char *msg);
 void appendWaitingToFile(char type, int id, int *adults, int *children);
@@ -137,7 +140,7 @@ int main(int argc, char *argv[])
 	
 	if(childFactoryPID == 0)
 	{
-		childFactory(cParam,cgtParam,cwtParam);
+		childFactory(cParam,aParam,cgtParam,cwtParam);
 	}
 		
 		
@@ -153,7 +156,7 @@ int main(int argc, char *argv[])
 
 /**
  * Adult factory creating adult processes using fork
- * @param adultCount Count of processes to create
+ * @param adultCount Nubmer of adult processes to create
  * @param agt Maximal length between generating
  * @param awt Maximal length for waiting
  */
@@ -219,6 +222,7 @@ void adultFactory(int adultCount, int agt, int awt)
 			
 			
 			// Finishing adult process
+			sem_wait(finishSemaphore);
 			appendToFile('A',id,"finished");
 			exit(0);
 		}
@@ -234,11 +238,12 @@ void adultFactory(int adultCount, int agt, int awt)
 
 /**
  * Child factory creating child processes using fork
- * @param childCount Count of processes to create
+ * @param childCount Number of child processes to create
+ * @param childCount Number of adult processes
  * @param cgt Maximal length between generating
  * @param cwt Maximal length for waiting
  */
-void childFactory(int childCount, int cgt, int cwt)
+void childFactory(int childCount, int adultCount, int cgt, int cwt)
 {
 	for(int i = 0; i < childCount; i++)
 	{
@@ -295,12 +300,21 @@ void childFactory(int childCount, int cgt, int cwt)
 			if(!(*childrenInCenter > ((*adultsInCenter)-1) * 3))
 				sem_post(adultLeaveSemaphore);
 			
-			sem_post(centerChangeSemaphore);
+			(*finishedChildren)++;
+			
+			sem_post(centerChangeSemaphore);	
 			
 			appendToFile('C',id,"leave"); 
 			
+			// Finishing all processes
+			if(*noMoreAdults == 1 && childCount == *finishedChildren)
+			{
+				for(int x = 0; x < childCount+adultCount; x++)
+				sem_post(finishSemaphore);
+			}
 			
-			// Finishing child process
+			// Finishing this child process
+			sem_wait(finishSemaphore);
 			appendToFile('C',id,"finished");
 			exit(0); 
 		}
@@ -344,9 +358,14 @@ void init()
 	if((childrenInCenter = (int *) shmat(childrenInCenterId, NULL, 0)) == NULL) 
 			exitError("Loading shared memory failed"); 
 			
-	 if((noMoreAdultsId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+	if((noMoreAdultsId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
 			exitError("Creating shared memory failed");
 	if((noMoreAdults = (int *) shmat(noMoreAdultsId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed"); 
+			
+	if((finishedChildrenId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((finishedChildren = (int *) shmat(finishedChildrenId, NULL, 0)) == NULL) 
 			exitError("Loading shared memory failed"); 
 
 
@@ -359,6 +378,7 @@ void init()
 	*childrenInCenter = 0;
 	
 	*noMoreAdults = 0;
+	*finishedChildren = 0;
 	
 	// Creating semaphores
 	if((lineSemaphore = sem_open("line", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
@@ -377,6 +397,8 @@ void init()
 			exitError("Creating child counter semaphore failed");
 	if((childEnterSemaphore = sem_open("childEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
 			exitError("Creating child counter semaphore failed");
+	if((finishSemaphore = sem_open("finish", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+			exitError("Creating semaphore failed");
 }
 
 
@@ -461,6 +483,7 @@ void clean()
 	shmctl(adultsInCenterId, IPC_RMID, NULL);
 	shmctl(childrenInCenterId, IPC_RMID, NULL);
 	shmctl(noMoreAdultsId, IPC_RMID, NULL);
+	shmctl(finishedChildrenId, IPC_RMID, NULL);
 	
 	// Closing semaphores
 	sem_close(lineSemaphore);
@@ -471,6 +494,7 @@ void clean()
 	sem_close(centerChangeSemaphore);
 	sem_close(adultLeaveSemaphore);
 	sem_close(childEnterSemaphore);
+	sem_close(finishSemaphore);
 	
 	// Unlinking semaphores
 	sem_unlink("line");
@@ -481,4 +505,5 @@ void clean()
 	sem_unlink("centerChange");
 	sem_unlink("adultLeave");
 	sem_unlink("childEnter");
+	sem_unlink("finish");
 }
