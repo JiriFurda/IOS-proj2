@@ -45,6 +45,7 @@ int *noMoreAdults = NULL;
 void exitError(char *msg);
 void clean();
 void init();
+void randSleep(int time);
 void createSharedMemory(int id, int *content);
 void childFactory(int childCount, int agt, int awt);
 void adultFactory(int adultCount, int cgt, int cwt);
@@ -153,6 +154,8 @@ int main(int argc, char *argv[])
 /**
  * Adult factory creating adult processes using fork
  * @param adultCount Count of processes to create
+ * @param agt Maximal length between generating
+ * @param awt Maximal length for waiting
  */
 void adultFactory(int adultCount, int agt, int awt)
 {	
@@ -186,8 +189,7 @@ void adultFactory(int adultCount, int agt, int awt)
 			
 			
 			// Sleeping
-			if(awt)
-				usleep(rand() % awt * 1000);
+			randSleep(awt);
 			appendToFile('A',id,"trying to leave");
 			
 
@@ -222,8 +224,7 @@ void adultFactory(int adultCount, int agt, int awt)
 		}
 		
 		// Sleeping
-		if(agt)
-			usleep(rand() % agt * 1000);
+		randSleep(agt);
 	}
 	*noMoreAdults = -1;
 
@@ -234,6 +235,8 @@ void adultFactory(int adultCount, int agt, int awt)
 /**
  * Child factory creating child processes using fork
  * @param childCount Count of processes to create
+ * @param cgt Maximal length between generating
+ * @param cwt Maximal length for waiting
  */
 void childFactory(int childCount, int cgt, int cwt)
 {
@@ -251,6 +254,7 @@ void childFactory(int childCount, int cgt, int cwt)
 			appendToFile('C',id,"started");
 			
 			sem_wait(centerChangeSemaphore);
+			
 			
 			// Checking child center requirements
 			if(*noMoreAdults != 1 && (*childrenInCenter)+1 > (*adultsInCenter) * 3) // asi se bude resit jinak, ale jak???
@@ -277,8 +281,7 @@ void childFactory(int childCount, int cgt, int cwt)
 			
 			
 			// Sleeping
-			if(cwt)
-				usleep(rand() % cwt * 1000);
+			randSleep(cwt);
 			appendToFile('C',id,"trying to leave"); 
 			
 			
@@ -303,8 +306,7 @@ void childFactory(int childCount, int cgt, int cwt)
 		}
 		
 		// Sleeping
-		if(cgt)
-			usleep(rand() % cgt * 1000);
+		randSleep(cgt);
 	}
 
 	exit(0);
@@ -317,64 +319,64 @@ void childFactory(int childCount, int cgt, int cwt)
 void init()
 {
 	// Creating shared memory (could use own function)
-    if((lineCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
-        exitError("Creating shared memory failed");
-    if((lineCounter = (int *) shmat(lineCounterId, NULL, 0)) == NULL) 
-        exitError("Loading shared memory failed");
-        
-    if((adultCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
-        exitError("Creating shared memory failed");
-    if((adultCounter = (int *) shmat(adultCounterId, NULL, 0)) == NULL) 
-        exitError("Loading shared memory failed");
-        
-    if((childCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
-        exitError("Creating shared memory failed");
-    if((childCounter = (int *) shmat(childCounterId, NULL, 0)) == NULL) 
-        exitError("Loading shared memory failed");
+	if((lineCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((lineCounter = (int *) shmat(lineCounterId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed");
+			
+	if((adultCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((adultCounter = (int *) shmat(adultCounterId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed");
+			
+	if((childCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((childCounter = (int *) shmat(childCounterId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed");
 
-    if((adultsInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
-        exitError("Creating shared memory failed");
-    if((adultsInCenter = (int *) shmat(adultsInCenterId, NULL, 0)) == NULL) 
-        exitError("Loading shared memory failed");
-        
-    if((childrenInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
-        exitError("Creating shared memory failed");
-    if((childrenInCenter = (int *) shmat(childrenInCenterId, NULL, 0)) == NULL) 
-        exitError("Loading shared memory failed"); 
-        
-     if((noMoreAdultsId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
-        exitError("Creating shared memory failed");
-    if((noMoreAdults = (int *) shmat(noMoreAdultsId, NULL, 0)) == NULL) 
-        exitError("Loading shared memory failed"); 
+	if((adultsInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((adultsInCenter = (int *) shmat(adultsInCenterId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed");
+			
+	if((childrenInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((childrenInCenter = (int *) shmat(childrenInCenterId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed"); 
+			
+	 if((noMoreAdultsId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+			exitError("Creating shared memory failed");
+	if((noMoreAdults = (int *) shmat(noMoreAdultsId, NULL, 0)) == NULL) 
+			exitError("Loading shared memory failed"); 
 
 
-		// Setting default value of shared memory
-		*lineCounter = 1;
-		*adultCounter = 1;
-		*childCounter = 1;
-		
-		*adultsInCenter = 0;
-		*childrenInCenter = 0;
-    
-    *noMoreAdults = 0;
-    
-    // Creating semaphores
-    if((lineSemaphore = sem_open("line", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating line semaphore failed");
-    if((adultCounterSemaphore = sem_open("adultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating adult counter semaphore failed");
-    if((childCounterSemaphore = sem_open("childCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating child counter semaphore failed");
-		if((adultsInCenterSemaphore = sem_open("adultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating child counter semaphore failed");
-		if((childrenInCenterSemaphore = sem_open("childrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating child counter semaphore failed");
-		if((centerChangeSemaphore = sem_open("centerChange", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating child counter semaphore failed");
-    if((adultLeaveSemaphore = sem_open("adultLeave", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-        exitError("Creating child counter semaphore failed");
-    if((childEnterSemaphore = sem_open("childEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
-        exitError("Creating child counter semaphore failed");
+	// Setting default value of shared memory
+	*lineCounter = 1;
+	*adultCounter = 1;
+	*childCounter = 1;
+	
+	*adultsInCenter = 0;
+	*childrenInCenter = 0;
+	
+	*noMoreAdults = 0;
+	
+	// Creating semaphores
+	if((lineSemaphore = sem_open("line", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating line semaphore failed");
+	if((adultCounterSemaphore = sem_open("adultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating adult counter semaphore failed");
+	if((childCounterSemaphore = sem_open("childCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating child counter semaphore failed");
+	if((adultsInCenterSemaphore = sem_open("adultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating child counter semaphore failed");
+	if((childrenInCenterSemaphore = sem_open("childrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating child counter semaphore failed");
+	if((centerChangeSemaphore = sem_open("centerChange", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating child counter semaphore failed");
+	if((adultLeaveSemaphore = sem_open("adultLeave", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating child counter semaphore failed");
+	if((childEnterSemaphore = sem_open("childEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+			exitError("Creating child counter semaphore failed");
 }
 
 
@@ -400,6 +402,7 @@ void appendToFile(char type, int id, char *msg)
 	sem_post(lineSemaphore);
 }
 
+
 /**
  * Append new line at the end of output file with action log about waiting
  * @param type Character 'C' for child process or character 'A' for adult process
@@ -420,6 +423,17 @@ void appendWaitingToFile(char type, int id, int *adults, int *children)
 	fclose(file);
 	
 	sem_post(lineSemaphore);
+}
+
+
+/**
+ * Sleep for random time
+ * @param time Maximal length of sleep in miliseconds
+ */
+void randSleep(int time)
+{
+	if(time > 0)
+		usleep(((time * 2) - (rand() % time)) * 1000);
 }
 
 /**
