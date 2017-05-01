@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
  * @param adultCount Count of processes to create
  */
 void adultFactory(int adultCount, int agt, int awt)
-{
+{	
 	for(int i = 0; i < adultCount; i++)
 	{	
 		pid_t pid = fork();
@@ -186,7 +186,8 @@ void adultFactory(int adultCount, int agt, int awt)
 			
 			
 			// Sleeping
-			usleep(rand() % awt * 1000);
+			if(awt)
+				usleep(rand() % awt * 1000);
 			appendToFile('A',id,"trying to leave");
 			
 
@@ -221,7 +222,8 @@ void adultFactory(int adultCount, int agt, int awt)
 		}
 		
 		// Sleeping
-		usleep(rand() % agt * 1000);
+		if(agt)
+			usleep(rand() % agt * 1000);
 	}
 	*noMoreAdults = -1;
 
@@ -275,7 +277,8 @@ void childFactory(int childCount, int cgt, int cwt)
 			
 			
 			// Sleeping
-			usleep(rand() % cwt * 1000);
+			if(cwt)
+				usleep(rand() % cwt * 1000);
 			appendToFile('C',id,"trying to leave"); 
 			
 			
@@ -300,7 +303,8 @@ void childFactory(int childCount, int cgt, int cwt)
 		}
 		
 		// Sleeping
-		usleep(rand() % cgt * 1000);
+		if(cgt)
+			usleep(rand() % cgt * 1000);
 	}
 
 	exit(0);
