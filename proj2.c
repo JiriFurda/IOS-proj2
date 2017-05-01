@@ -10,7 +10,7 @@ Autor: Jiri Furda (xfurda00)
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <string.h>
-#include <sys/types.h> // why?
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <semaphore.h>
 #include <fcntl.h>
@@ -19,7 +19,7 @@ Autor: Jiri Furda (xfurda00)
 
 // Semaphores
 sem_t *lineSemaphore;
-sem_t *adultCounterSemaphore; // jen counter nebo celkove semafor?
+sem_t *adultCounterSemaphore;
 sem_t *childCounterSemaphore;
 sem_t *adultsInCenterSemaphore;
 sem_t *childrenInCenterSemaphore;
@@ -257,7 +257,7 @@ void childFactory(int childCount, int cgt, int cwt)
 			
 			
 			// Checking child center requirements
-			if(*noMoreAdults != 1 && (*childrenInCenter)+1 > (*adultsInCenter) * 3) // asi se bude resit jinak, ale jak???
+			if(*noMoreAdults != 1 && (*childrenInCenter)+1 > (*adultsInCenter) * 3)
 			{
 				sem_post(centerChangeSemaphore);
 				
