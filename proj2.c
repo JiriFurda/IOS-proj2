@@ -193,11 +193,11 @@ void adultFactory(int adultCount, int agt, int awt)
 			
 			// Sleeping
 			randSleep(awt);
+			sem_wait(centerChangeSemaphore);
 			appendToFile('A',id,"trying to leave");
 			
 
 			// Checking child center requirements
-			sem_wait(centerChangeSemaphore);
 			if(*childrenInCenter > ((*adultsInCenter)-1) * 3)
 			{
 				sem_post(centerChangeSemaphore);
@@ -216,9 +216,9 @@ void adultFactory(int adultCount, int agt, int awt)
 			if(*noMoreAdults == -1 && *adultsInCenter == 0)
 				*noMoreAdults = 1;
 			
-			sem_post(centerChangeSemaphore);
-			
 			appendToFile('A',id,"leave");
+			
+			sem_post(centerChangeSemaphore);
 			
 			
 			// Finishing adult process
@@ -286,30 +286,31 @@ void childFactory(int childCount, int adultCount, int cgt, int cwt)
 			
 			// Sleeping
 			randSleep(cwt);
+			
+			sem_wait(centerChangeSemaphore);
+			
 			appendToFile('C',id,"trying to leave"); 
 			
 			
 			// Leaving child center
-			sem_wait(centerChangeSemaphore);
-			
 			sem_wait(childrenInCenterSemaphore);
 			(*childrenInCenter)--;
 			sem_post(childrenInCenterSemaphore);
 			
 			(*finishedChildren)++;
 			
-			if(!(*childrenInCenter < ((*adultsInCenter)-1) * 3))
+			appendToFile('C',id,"leave"); 
+			
+			if(!(*childrenInCenter > ((*adultsInCenter)-1) * 3))
 				sem_post(adultLeaveSemaphore);
 			
 			sem_post(centerChangeSemaphore);	
-			
-			appendToFile('C',id,"leave"); 
 			
 			
 			// Finishing all processes
 			if(*noMoreAdults == 1 && childCount == *finishedChildren)
 			{
-				for(int x = 0; x < childCount+adultCount; x++)
+				for(int x = 0; x < childCount+adultCount+1; x++)
 				sem_post(finishSemaphore);
 			}
 			
@@ -382,24 +383,24 @@ void init()
 	*finishedChildren = 0;
 	
 	// Creating semaphores
-	if((lineSemaphore = sem_open("line", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((lineSemaphore = sem_open("Fline", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating line semaphore failed");
-	if((adultCounterSemaphore = sem_open("adultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((adultCounterSemaphore = sem_open("FadultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating adult counter semaphore failed");
-	if((childCounterSemaphore = sem_open("childCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((childCounterSemaphore = sem_open("FchildCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating child counter semaphore failed");
-	if((adultsInCenterSemaphore = sem_open("adultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-			exitError("Creating child counter semaphore failed");
-	if((childrenInCenterSemaphore = sem_open("childrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-			exitError("Creating child counter semaphore failed");
-	if((centerChangeSemaphore = sem_open("centerChange", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-			exitError("Creating child counter semaphore failed");
-	if((adultLeaveSemaphore = sem_open("adultLeave", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
-			exitError("Creating child counter semaphore failed");
-	if((childEnterSemaphore = sem_open("childEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
-			exitError("Creating child counter semaphore failed");
-	if((finishSemaphore = sem_open("finish", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
-			exitError("Creating semaphore failed");
+	if((adultsInCenterSemaphore = sem_open("FadultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating adults in center semaphore failed");
+	if((childrenInCenterSemaphore = sem_open("FchildrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating children in center semaphore failed");
+	if((centerChangeSemaphore = sem_open("FcenterChange", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+			exitError("Creating center change counter semaphore failed");
+	if((adultLeaveSemaphore = sem_open("FadultLeave", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+			exitError("Creating adult leave semaphore failed");
+	if((childEnterSemaphore = sem_open("FchildEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+			exitError("Creating child enter semaphore failed");
+	if((finishSemaphore = sem_open("Ffinish", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+			exitError("Creating finish semaphore failed");
 }
 
 
@@ -499,13 +500,13 @@ void clean()
 	sem_close(finishSemaphore);
 	
 	// Unlinking semaphores
-	sem_unlink("line");
-	sem_unlink("adultCounter");
-	sem_unlink("childCounter");
-	sem_unlink("adultsInCenter");
-	sem_unlink("childrenInCenter");
-	sem_unlink("centerChange");
-	sem_unlink("adultLeave");
-	sem_unlink("childEnter");
-	sem_unlink("finish");
+	sem_unlink("Fline");
+	sem_unlink("FadultCounter");
+	sem_unlink("FchildCounter");
+	sem_unlink("FadultsInCenter");
+	sem_unlink("FchildrenInCenter");
+	sem_unlink("FcenterChange");
+	sem_unlink("FadultLeave");
+	sem_unlink("FchildEnter");
+	sem_unlink("Ffinish");
 }
