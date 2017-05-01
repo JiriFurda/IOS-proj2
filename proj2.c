@@ -455,29 +455,30 @@ void exitError(char *msg)
 void clean()
 {
 	// Cleaning shared memory
-    shmctl(lineCounterId, IPC_RMID, NULL);
-    shmctl(adultCounterId, IPC_RMID, NULL);
-    shmctl(childCounterId, IPC_RMID, NULL);
-    shmctl(adultsInCenterId, IPC_RMID, NULL);
-    shmctl(childrenInCenterId, IPC_RMID, NULL);
-    
-    // Closing semaphores
-    sem_close(lineSemaphore);
-    sem_close(adultCounterSemaphore);
-    sem_close(childCounterSemaphore);
-    sem_close(adultsInCenterSemaphore);
-    sem_close(childrenInCenterSemaphore);
-    sem_close(centerChangeSemaphore);
-    sem_close(adultLeaveSemaphore);
-    sem_close(childEnterSemaphore);
-    
-    // Unlinking semaphores
-    sem_unlink("line");
-    sem_unlink("adultCounter");
-    sem_unlink("childCounter");
-    sem_unlink("adultsInCenter");
-    sem_unlink("childrenInCenter");
-    sem_unlink("centerChange");
-    sem_unlink("adultLeave");
-    sem_unlink("childEnter");
+	shmctl(lineCounterId, IPC_RMID, NULL);
+	shmctl(adultCounterId, IPC_RMID, NULL);
+	shmctl(childCounterId, IPC_RMID, NULL);
+	shmctl(adultsInCenterId, IPC_RMID, NULL);
+	shmctl(childrenInCenterId, IPC_RMID, NULL);
+	shmctl(noMoreAdultsId, IPC_RMID, NULL);
+	
+	// Closing semaphores
+	sem_close(lineSemaphore);
+	sem_close(adultCounterSemaphore);
+	sem_close(childCounterSemaphore);
+	sem_close(adultsInCenterSemaphore);
+	sem_close(childrenInCenterSemaphore);
+	sem_close(centerChangeSemaphore);
+	sem_close(adultLeaveSemaphore);
+	sem_close(childEnterSemaphore);
+	
+	// Unlinking semaphores
+	sem_unlink("line");
+	sem_unlink("adultCounter");
+	sem_unlink("childCounter");
+	sem_unlink("adultsInCenter");
+	sem_unlink("childrenInCenter");
+	sem_unlink("centerChange");
+	sem_unlink("adultLeave");
+	sem_unlink("childEnter");
 }
