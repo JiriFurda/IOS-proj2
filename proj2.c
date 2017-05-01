@@ -14,6 +14,7 @@ Autor: Jiri Furda (xfurda00)
 #include <sys/wait.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <time.h>
 
 
 // Semaphores
@@ -22,6 +23,9 @@ sem_t *adultCounterSemaphore; // jen counter nebo celkove semafor?
 sem_t *childCounterSemaphore;
 sem_t *adultsInCenterSemaphore;
 sem_t *childrenInCenterSemaphore;
+sem_t *centerChangeSemaphore;
+sem_t *adultLeaveSemaphore;
+sem_t *childEnterSemaphore;
 
 // Global variables
 int lineCounterId = 0;
@@ -29,11 +33,13 @@ int adultCounterId = 0;
 int childCounterId = 0;
 int adultsInCenterId = 0;
 int childrenInCenterId = 0;
+int noMoreAdultsId = 0;
 int *lineCounter = NULL;
 int *adultCounter = NULL;
 int *childCounter = NULL;
 int *adultsInCenter = NULL;
 int *childrenInCenter = NULL;
+int *noMoreAdults = NULL;
 
 // Function prototypes
 void exitError(char *msg);
@@ -43,6 +49,7 @@ void createSharedMemory(int id, int *content);
 void childFactory();
 void adultFactory();
 void appendToFile(char type, int id, char *msg);
+void appendWaitingToFile(char type, int id, int *adults, int *children);
 
 
 /**
@@ -106,7 +113,7 @@ int main(int argc, char *argv[])
 	
 	// --- Initializing ---
 	init();
-	
+	srand(time(NULL));
 	
 	
 	// --- Adult factory ---
@@ -164,9 +171,16 @@ void adultFactory(int adultCount)
 			
 			
 			// Entering child center
+			sem_wait(centerChangeSemaphore);
+			
 			sem_wait(adultsInCenterSemaphore);
 			(*adultsInCenter)++;
 			sem_post(adultsInCenterSemaphore);
+			
+			if(!((*childrenInCenter)+1 > (*adultsInCenter) * 3))
+				sem_post(childEnterSemaphore);
+			
+			sem_post(centerChangeSemaphore);
 			
 			appendToFile('A',id,"enter");
 			
@@ -174,41 +188,38 @@ void adultFactory(int adultCount)
 			// sleep AWT TO-DO
 			appendToFile('A',id,"trying to leave");
 			
-			
-			// tady bude potreba to nejak opakovat nebo spis nahodit semafor
-			// Checking child center requirements
-			if(*childrenInCenter > ((*adultsInCenter)-1) * 3) // Mozna do lokalni promenne at se to do dalsiho radku nezmeni
-			{
 
-				appendToFile('A',id,"waiting"); // TO-DO tisk kolik deti kolik rodicu
-				printf("c=%d a=%d\n",*childrenInCenter,*adultsInCenter);
-				// a nejakej ten druhej pokus ted :O
-			}
-			else
+			// Checking child center requirements
+			sem_wait(centerChangeSemaphore);
+			if(*childrenInCenter > ((*adultsInCenter)-1) * 3)
 			{
-				// Leaving child center
-				sem_wait(adultsInCenterSemaphore);
-				(*adultsInCenter)--;
-				sem_post(adultsInCenterSemaphore);
+				sem_post(centerChangeSemaphore);
+
+				appendWaitingToFile('A',id,childrenInCenter,adultsInCenter);
 				
-				appendToFile('A',id,"leave");
-				
-				
-				// Finishing adult process
-				appendToFile('A',id,"finished");
-				exit(0);
+				sem_wait(adultLeaveSemaphore);
 			}
+
+
+			// Leaving child center
+			sem_wait(adultsInCenterSemaphore);
+			(*adultsInCenter)--;
+			sem_post(adultsInCenterSemaphore);
+			
+			if(*noMoreAdults == -1 && *adultsInCenter == 0)
+				*noMoreAdults = 1;
+			
+			sem_post(centerChangeSemaphore);
+			
+			appendToFile('A',id,"leave");
 			
 			
-			appendToFile('A',id,"Im a fucking zombie"); // TO-DO!
-			exit(420);
-		}
-		else
-		{
-			printf("I'm still adult factory (adult = %d)\n",pid);
-			// sleep AGT TO-DO
+			// Finishing adult process
+			appendToFile('A',id,"finished");
+			exit(0);
 		}
 	}
+	*noMoreAdults = -1;
 
 	exit(0);	
 }
@@ -233,49 +244,54 @@ void childFactory(int childCount)
 			
 			appendToFile('C',id,"started");
 			
+			sem_wait(centerChangeSemaphore);
 			
 			// Checking child center requirements
-			if((*childrenInCenter)+1 > (*adultsInCenter) * 3) // asi se bude resit jinak, ale jak???
+			if(*noMoreAdults != 1 && (*childrenInCenter)+1 > (*adultsInCenter) * 3) // asi se bude resit jinak, ale jak???
 			{
+				sem_post(centerChangeSemaphore);
+				
 				// Waiting
-				appendToFile('C',id,"waiting"); // TO-DO tisk kolik deti kolik rodicu
-				printf("[A] c=%d a=%d\n",*childrenInCenter,*adultsInCenter);
-				// a nejakej ten druhej pokus ted :O
+				appendWaitingToFile('C',id,childrenInCenter,adultsInCenter);
+				
+				sem_wait(childEnterSemaphore);
+				
 			}
-			else
-			{
-				// Entering child centre
-				sem_wait(childrenInCenterSemaphore);
-				(*childrenInCenter)++;
-				sem_post(childrenInCenterSemaphore);
-				
-				appendToFile('C',id,"enter"); 
-				
-				
-				// sleep CWT TO-DO
-				appendToFile('C',id,"trying to leave"); 
-				
-				
-				// Leaving child center
-				sem_wait(childrenInCenterSemaphore);
-				(*childrenInCenter)--;
-				sem_post(childrenInCenterSemaphore);
-				
-				appendToFile('C',id,"leave"); 
-				
-				// Finishing child process
-				appendToFile('C',id,"finished");
-				exit(0); 
-			}			
 			
 			
-			appendToFile('C',id,"Im bullshit child");
-			exit(420);
-		}
-		else
-		{
-			printf("I'm still child factory (child = %d)\n",pid);
-			// sleep CGT TO-DO
+			// Entering child centre
+			sem_wait(childrenInCenterSemaphore);
+			(*childrenInCenter)++;
+			sem_post(childrenInCenterSemaphore);
+			
+			sem_post(centerChangeSemaphore);
+			
+			appendToFile('C',id,"enter"); 
+			
+			
+			
+			// sleep CWT TO-DO
+			appendToFile('C',id,"trying to leave"); 
+			
+			
+			// Leaving child center
+			sem_wait(centerChangeSemaphore);
+			
+			sem_wait(childrenInCenterSemaphore);
+			(*childrenInCenter)--;
+			sem_post(childrenInCenterSemaphore);
+			
+			if(!(*childrenInCenter > ((*adultsInCenter)-1) * 3))
+				sem_post(adultLeaveSemaphore);
+			
+			sem_post(centerChangeSemaphore);
+			
+			appendToFile('C',id,"leave"); 
+			
+			
+			// Finishing child process
+			appendToFile('C',id,"finished");
+			exit(0); 
 		}
 	}
 
@@ -289,49 +305,63 @@ void childFactory(int childCount)
 void init()
 {
 	// Creating shared memory (could use own function)
-    if ((lineCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+    if((lineCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
         exitError("Creating shared memory failed");
-    if ((lineCounter = (int *) shmat(lineCounterId, NULL, 0)) == NULL) 
+    if((lineCounter = (int *) shmat(lineCounterId, NULL, 0)) == NULL) 
         exitError("Loading shared memory failed");
         
-    if ((adultCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+    if((adultCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
         exitError("Creating shared memory failed");
-    if ((adultCounter = (int *) shmat(adultCounterId, NULL, 0)) == NULL) 
+    if((adultCounter = (int *) shmat(adultCounterId, NULL, 0)) == NULL) 
         exitError("Loading shared memory failed");
         
-    if ((childCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+    if((childCounterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
         exitError("Creating shared memory failed");
-    if ((childCounter = (int *) shmat(childCounterId, NULL, 0)) == NULL) 
+    if((childCounter = (int *) shmat(childCounterId, NULL, 0)) == NULL) 
         exitError("Loading shared memory failed");
 
-    if ((adultsInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+    if((adultsInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
         exitError("Creating shared memory failed");
-    if ((adultsInCenter = (int *) shmat(adultsInCenterId, NULL, 0)) == NULL) 
+    if((adultsInCenter = (int *) shmat(adultsInCenterId, NULL, 0)) == NULL) 
         exitError("Loading shared memory failed");
         
-    if ((childrenInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+    if((childrenInCenterId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
         exitError("Creating shared memory failed");
-    if ((childrenInCenter = (int *) shmat(childrenInCenterId, NULL, 0)) == NULL) 
+    if((childrenInCenter = (int *) shmat(childrenInCenterId, NULL, 0)) == NULL) 
+        exitError("Loading shared memory failed"); 
+        
+     if((noMoreAdultsId = shmget(IPC_PRIVATE, sizeof (int), IPC_CREAT | 0666)) == -1) 
+        exitError("Creating shared memory failed");
+    if((noMoreAdults = (int *) shmat(noMoreAdultsId, NULL, 0)) == NULL) 
         exitError("Loading shared memory failed"); 
 
-	// Setting default value of shared memory
-	*lineCounter = 1;
-	*adultCounter = 1;
-	*childCounter = 1;
-	
-	*adultsInCenter = 0;
-	*childrenInCenter = 0;
+
+		// Setting default value of shared memory
+		*lineCounter = 1;
+		*adultCounter = 1;
+		*childCounter = 1;
+		
+		*adultsInCenter = 0;
+		*childrenInCenter = 0;
+    
+    *noMoreAdults = 0;
     
     // Creating semaphores
-    if ((lineSemaphore = sem_open("line", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+    if((lineSemaphore = sem_open("line", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
         exitError("Creating line semaphore failed");
-    if ((adultCounterSemaphore = sem_open("adultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+    if((adultCounterSemaphore = sem_open("adultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
         exitError("Creating adult counter semaphore failed");
-    if ((childCounterSemaphore = sem_open("childCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+    if((childCounterSemaphore = sem_open("childCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
         exitError("Creating child counter semaphore failed");
-	if ((adultsInCenterSemaphore = sem_open("adultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+		if((adultsInCenterSemaphore = sem_open("adultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
         exitError("Creating child counter semaphore failed");
-	if ((childrenInCenterSemaphore = sem_open("childrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+		if((childrenInCenterSemaphore = sem_open("childrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+        exitError("Creating child counter semaphore failed");
+		if((centerChangeSemaphore = sem_open("centerChange", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+        exitError("Creating child counter semaphore failed");
+    if((adultLeaveSemaphore = sem_open("adultLeave", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+        exitError("Creating child counter semaphore failed");
+    if((childEnterSemaphore = sem_open("childEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
         exitError("Creating child counter semaphore failed");
 }
 
@@ -346,16 +376,39 @@ void appendToFile(char type, int id, char *msg)
 {
 	sem_wait(lineSemaphore);
 	
+	// Opening file
 	FILE *file = fopen("proj2.out", "a");
 	if (file == NULL)
 		exitError("Opening file failed");
-	//"19	: C 4	: trying to leave"
+	
+	// Writing to file and closing
 	fprintf(file, "%d\t: %c %d\t: %s\n", (*lineCounter)++, type, id,  msg);
 	fclose(file);
 	
 	sem_post(lineSemaphore);
 }
 
+/**
+ * Append new line at the end of output file with action log about waiting
+ * @param type Character 'C' for child process or character 'A' for adult process
+ * @param id ID of the process (starting from 1)
+ * @param msg Type of action
+ */
+void appendWaitingToFile(char type, int id, int *adults, int *children)
+{
+	sem_wait(lineSemaphore);
+	
+	// Opening file
+	FILE *file = fopen("proj2.out", "a");
+	if (file == NULL)
+		exitError("Opening file failed");
+	
+	// Writing to file and closing
+	fprintf(file, "%d\t: %c %d\t: waiting : %d : %d\n", (*lineCounter)++, type, id, *adults, *children);
+	fclose(file);
+	
+	sem_post(lineSemaphore);
+}
 
 /**
  * Print brief error message, error number and more details to stderr and then exits program with value 2
@@ -375,21 +428,30 @@ void exitError(char *msg)
  */
 void clean()
 {
+	// Cleaning shared memory
     shmctl(lineCounterId, IPC_RMID, NULL);
     shmctl(adultCounterId, IPC_RMID, NULL);
     shmctl(childCounterId, IPC_RMID, NULL);
     shmctl(adultsInCenterId, IPC_RMID, NULL);
     shmctl(childrenInCenterId, IPC_RMID, NULL);
     
+    // Closing semaphores
     sem_close(lineSemaphore);
     sem_close(adultCounterSemaphore);
     sem_close(childCounterSemaphore);
     sem_close(adultsInCenterSemaphore);
     sem_close(childrenInCenterSemaphore);
+    sem_close(centerChangeSemaphore);
+    sem_close(adultLeaveSemaphore);
+    sem_close(childEnterSemaphore);
     
+    // Unlinking semaphores
     sem_unlink("line");
     sem_unlink("adultCounter");
     sem_unlink("childCounter");
     sem_unlink("adultsInCenter");
     sem_unlink("childrenInCenter");
+    sem_unlink("centerChange");
+    sem_unlink("adultLeave");
+    sem_unlink("childEnter");
 }
