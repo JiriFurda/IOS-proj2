@@ -46,8 +46,8 @@ void exitError(char *msg);
 void clean();
 void init();
 void createSharedMemory(int id, int *content);
-void childFactory();
-void adultFactory();
+void childFactory(int childCount, int agt, int awt);
+void adultFactory(int adultCount, int cgt, int cwt);
 void appendToFile(char type, int id, char *msg);
 void appendWaitingToFile(char type, int id, int *adults, int *children);
 
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 	
 	if(adultFactoryPID == 0)
 	{
-		adultFactory(aParam);
+		adultFactory(aParam,agtParam,awtParam);
 	}
 	
 	
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 	
 	if(childFactoryPID == 0)
 	{
-		childFactory(cParam);
+		childFactory(cParam,cgtParam,cwtParam);
 	}
 		
 		
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
  * Adult factory creating adult processes using fork
  * @param adultCount Count of processes to create
  */
-void adultFactory(int adultCount)
+void adultFactory(int adultCount, int agt, int awt)
 {
 	for(int i = 0; i < adultCount; i++)
 	{	
@@ -185,7 +185,8 @@ void adultFactory(int adultCount)
 			appendToFile('A',id,"enter");
 			
 			
-			// sleep AWT TO-DO
+			// Sleeping
+			usleep(rand() % awt * 1000);
 			appendToFile('A',id,"trying to leave");
 			
 
@@ -218,6 +219,9 @@ void adultFactory(int adultCount)
 			appendToFile('A',id,"finished");
 			exit(0);
 		}
+		
+		// Sleeping
+		usleep(rand() % agt * 1000);
 	}
 	*noMoreAdults = -1;
 
@@ -229,7 +233,7 @@ void adultFactory(int adultCount)
  * Child factory creating child processes using fork
  * @param childCount Count of processes to create
  */
-void childFactory(int childCount)
+void childFactory(int childCount, int cgt, int cwt)
 {
 	for(int i = 0; i < childCount; i++)
 	{
@@ -270,7 +274,8 @@ void childFactory(int childCount)
 			
 			
 			
-			// sleep CWT TO-DO
+			// Sleeping
+			usleep(rand() % cwt * 1000);
 			appendToFile('C',id,"trying to leave"); 
 			
 			
@@ -293,6 +298,9 @@ void childFactory(int childCount)
 			appendToFile('C',id,"finished");
 			exit(0); 
 		}
+		
+		// Sleeping
+		usleep(rand() % cgt * 1000);
 	}
 
 	exit(0);
