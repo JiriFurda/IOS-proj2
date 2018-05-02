@@ -51,7 +51,7 @@ void init();
 void randSleep(int time);
 void createSharedMemory(int id, int *content);
 void childFactory(int childCount, int adultCount, int agt, int awt);
-void adultFactory(int adultCount, int cgt, int cwt);
+void adultFactory(int childCount, int adultCount, int cgt, int cwt);
 void appendToFile(char type, int id, char *msg);
 void appendWaitingToFile(char type, int id, int *adults, int *children);
 
@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 	
 	if(adultFactoryPID == 0)
 	{
-		adultFactory(aParam,agtParam,awtParam);
+		adultFactory(cParam,aParam,agtParam,awtParam);
 	}
 	
 	
@@ -156,11 +156,12 @@ int main(int argc, char *argv[])
 
 /**
  * Adult factory creating adult processes using fork
+ * @param childCount Nubmer of child processes to create
  * @param adultCount Nubmer of adult processes to create
  * @param agt Maximal length between generating
  * @param awt Maximal length for waiting
  */
-void adultFactory(int adultCount, int agt, int awt)
+void adultFactory(int childCount, int adultCount, int agt, int awt)
 {	
 	for(int i = 0; i < adultCount; i++)
 	{	
@@ -184,8 +185,11 @@ void adultFactory(int adultCount, int agt, int awt)
 			sem_post(adultsInCenterSemaphore);
 			
 			if(!((*childrenInCenter)+1 > (*adultsInCenter) * 3))
+			{
 				sem_post(childEnterSemaphore);
-			
+				sem_post(childEnterSemaphore);
+				sem_post(childEnterSemaphore);
+			}
 			sem_post(centerChangeSemaphore);
 			
 			appendToFile('A',id,"enter");
@@ -219,6 +223,14 @@ void adultFactory(int adultCount, int agt, int awt)
 			appendToFile('A',id,"leave");
 			
 			sem_post(centerChangeSemaphore);
+			
+				
+			// Finishing all processes
+			if(*noMoreAdults == 1 && childCount == *finishedChildren)
+			{
+				for(int x = 0; x < childCount+adultCount+1; x++)
+				sem_post(finishSemaphore);
+			}
 			
 			
 			// Finishing adult process
@@ -383,23 +395,23 @@ void init()
 	*finishedChildren = 0;
 	
 	// Creating semaphores
-	if((lineSemaphore = sem_open("Fline", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((lineSemaphore = sem_open("Fline", O_CREAT, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating line semaphore failed");
-	if((adultCounterSemaphore = sem_open("FadultCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((adultCounterSemaphore = sem_open("FadultCounter", O_CREAT, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating adult counter semaphore failed");
-	if((childCounterSemaphore = sem_open("FchildCounter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((childCounterSemaphore = sem_open("FchildCounter", O_CREAT, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating child counter semaphore failed");
-	if((adultsInCenterSemaphore = sem_open("FadultsInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((adultsInCenterSemaphore = sem_open("FadultsInCenter", O_CREAT, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating adults in center semaphore failed");
-	if((childrenInCenterSemaphore = sem_open("FchildrenInCenter", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((childrenInCenterSemaphore = sem_open("FchildrenInCenter", O_CREAT, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating children in center semaphore failed");
-	if((centerChangeSemaphore = sem_open("FcenterChange", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED) 
+	if((centerChangeSemaphore = sem_open("FcenterChange", O_CREAT, 0666, 1)) == SEM_FAILED) 
 			exitError("Creating center change counter semaphore failed");
-	if((adultLeaveSemaphore = sem_open("FadultLeave", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+	if((adultLeaveSemaphore = sem_open("FadultLeave", O_CREAT, 0666, 0)) == SEM_FAILED) 
 			exitError("Creating adult leave semaphore failed");
-	if((childEnterSemaphore = sem_open("FchildEnter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+	if((childEnterSemaphore = sem_open("FchildEnter", O_CREAT, 0666, 0)) == SEM_FAILED) 
 			exitError("Creating child enter semaphore failed");
-	if((finishSemaphore = sem_open("Ffinish", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED) 
+	if((finishSemaphore = sem_open("Ffinish", O_CREAT, 0666, 0)) == SEM_FAILED) 
 			exitError("Creating finish semaphore failed");
 }
 
